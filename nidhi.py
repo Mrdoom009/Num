@@ -54,30 +54,71 @@ def to_math_sans_plain(text: str) -> str:
 def blockquote(text: str) -> str:
     return f"<blockquote>{text}</blockquote>"
 
-# Text processing
-def clean_extracted_text(text: str) -> str:
-    # Remove numbered bullets (e.g., "1.", "2.")
-    text = re.sub(r'\b\d+\.\s*', '', text)
-    # Remove non-alphanumeric characters except spaces
-    text = re.sub(r'[^A-Za-z0-9\s]', '', text)
-    return ' '.join(text.split())
+# Text processing for new format
+def extract_title_from_new_format(text: str) -> str:
+    # Split by lines
+    lines = text.split('\n')
+    title_line = None
+    
+    # Find the line that starts with "Title:"
+    for line in lines:
+        if line.strip().startswith("Title:"):
+            title_line = line.strip()
+            break
+    
+    if not title_line:
+        return ""
+    
+    # Remove "Title:" prefix
+    title_text = title_line.replace("Title:", "").strip()
+    
+    # Remove the number between "Title:" and the actual text
+    # Pattern: optional spaces, digits, optional spaces, then the actual title
+    title_text = re.sub(r'^\s*\d+\s*', '', title_text)
+    
+    return title_text.strip()
 
 def process_caption(text: str, numbering: str) -> str:
-    # Split at first "//"
-    parts = text.split('//', 1)
-    before_delim = clean_extracted_text(parts[0].strip())
-    after_delim = parts[1].strip() if len(parts) > 1 else ''
-
-    # Convert both numbering and text to sans-serif
-    formatted_number = to_math_sans_plain(numbering.zfill(3))
-    formatted_text = to_math_sans_plain(before_delim)
-    blockquote_text = f"[{formatted_number}] {formatted_text}"
-
-    # Remove everything after Batch (case-insensitive, multi-line)
-    if after_delim:
-        after_delim = re.sub(r'(?si)Batch.*', '', after_delim).strip()
-
-    return blockquote(blockquote_text) + (f"\n{after_delim}" if after_delim else '')
+    # Check if it's the new format (contains "Title:" and "Topic:")
+    if "Title:" in text and "Topic:" in text:
+        # Extract title from new format
+        title_text = extract_title_from_new_format(text)
+        
+        # Clean the extracted text
+        title_text = re.sub(r'[^A-Za-z0-9\s\-]', '', title_text)
+        title_text = ' '.join(title_text.split())
+        
+        # Convert both numbering and text to sans-serif
+        formatted_number = to_math_sans_plain(numbering.zfill(3))
+        formatted_text = to_math_sans_plain(title_text)
+        blockquote_text = f"[{formatted_number}] {formatted_text}"
+        
+        return blockquote(blockquote_text)
+    
+    # Old format handling (for backward compatibility)
+    else:
+        # Split at first "//"
+        parts = text.split('//', 1)
+        before_delim = parts[0].strip()
+        
+        # Remove numbered bullets (e.g., "1.", "2.")
+        before_delim = re.sub(r'\b\d+\.\s*', '', before_delim)
+        # Remove non-alphanumeric characters except spaces and hyphens
+        before_delim = re.sub(r'[^A-Za-z0-9\s\-]', '', before_delim)
+        before_delim = ' '.join(before_delim.split())
+        
+        after_delim = parts[1].strip() if len(parts) > 1 else ''
+        
+        # Remove everything after Batch (case-insensitive, multi-line)
+        if after_delim:
+            after_delim = re.sub(r'(?si)Batch.*', '', after_delim).strip()
+        
+        # Convert both numbering and text to sans-serif
+        formatted_number = to_math_sans_plain(numbering.zfill(3))
+        formatted_text = to_math_sans_plain(before_delim)
+        blockquote_text = f"[{formatted_number}] {formatted_text}"
+        
+        return blockquote(blockquote_text) + (f"\n{after_delim}" if after_delim else '')
 
 # Handlers
 @bot.on_message(filters.media)
@@ -105,9 +146,13 @@ async def start_cmd(_, message):
     await message.reply(
         "📚 <b>Caption Formatter Bot</b>\n\n"
         "Send videos with captions formatted as:\n"
-        "<code>Title text // Additional details Batch info</code>\n\n"
-        "• Text before // becomes numbered title\n"
-        "• Everything after Batch is removed\n"
+        "<code>Index: 034\n"
+        "Title: 6 Subject Verb - Agreement - 2\n"
+        "Topic: Home -> Grammar -> Practice -> Video->\n"
+        "Batch: ACHIEVERS BATCH 7.0 (3 in 1 Batch)\n"
+        "Extracted By: https://tinyurl.com/allcompetitionclasses</code>\n\n"
+        "• Text from Title line (without the number) becomes numbered title\n"
+        "• Everything after Topic is removed\n"
         "• Automatic sans-serif formatting applied",
         parse_mode=enums.ParseMode.HTML
     )
