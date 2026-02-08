@@ -37,7 +37,7 @@ def save_number(num):
 
 current_number = load_number()
 
-# Font conversion
+# Font conversion for numbering only
 def to_math_sans_plain(text: str) -> str:
     converted = []
     for char in text:
@@ -84,14 +84,12 @@ def process_caption(text: str, numbering: str) -> str:
         # Extract title from new format
         title_text = extract_title_from_new_format(text)
         
-        # Clean the extracted text
-        title_text = re.sub(r'[^A-Za-z0-9\s\-]', '', title_text)
-        title_text = ' '.join(title_text.split())
+        if not title_text:
+            title_text = "Untitled"
         
-        # Convert both numbering and text to sans-serif
+        # Convert only the numbering to sans-serif
         formatted_number = to_math_sans_plain(numbering.zfill(3))
-        formatted_text = to_math_sans_plain(title_text)
-        blockquote_text = f"[{formatted_number}] {formatted_text}"
+        blockquote_text = f"[{formatted_number}] {title_text}"
         
         return blockquote(blockquote_text)
     
@@ -103,8 +101,8 @@ def process_caption(text: str, numbering: str) -> str:
         
         # Remove numbered bullets (e.g., "1.", "2.")
         before_delim = re.sub(r'\b\d+\.\s*', '', before_delim)
-        # Remove non-alphanumeric characters except spaces and hyphens
-        before_delim = re.sub(r'[^A-Za-z0-9\s\-]', '', before_delim)
+        # Remove non-alphanumeric characters except spaces, hyphens, and colons
+        before_delim = re.sub(r'[^A-Za-z0-9\s\-:]', '', before_delim)
         before_delim = ' '.join(before_delim.split())
         
         after_delim = parts[1].strip() if len(parts) > 1 else ''
@@ -113,10 +111,9 @@ def process_caption(text: str, numbering: str) -> str:
         if after_delim:
             after_delim = re.sub(r'(?si)Batch.*', '', after_delim).strip()
         
-        # Convert both numbering and text to sans-serif
+        # Convert only the numbering to sans-serif
         formatted_number = to_math_sans_plain(numbering.zfill(3))
-        formatted_text = to_math_sans_plain(before_delim)
-        blockquote_text = f"[{formatted_number}] {formatted_text}"
+        blockquote_text = f"[{formatted_number}] {before_delim}"
         
         return blockquote(blockquote_text) + (f"\n{after_delim}" if after_delim else '')
 
@@ -153,7 +150,8 @@ async def start_cmd(_, message):
         "Extracted By: https://tinyurl.com/allcompetitionclasses</code>\n\n"
         "• Text from Title line (without the number) becomes numbered title\n"
         "• Everything after Topic is removed\n"
-        "• Automatic sans-serif formatting applied",
+        "• Only numbering is formatted in sans-serif font\n"
+        "• Title text remains in normal font",
         parse_mode=enums.ParseMode.HTML
     )
 
