@@ -87,11 +87,16 @@ def process_caption(text: str, numbering: str) -> str:
         if not title_text:
             title_text = "Untitled"
         
-        # Convert only the numbering to sans-serif
-        formatted_number = to_math_sans_plain(numbering.zfill(3))
-        blockquote_text = f"[{formatted_number}] {title_text}"
+        # Clean the title text
+        title_text = re.sub(r'[^\w\s\-]', '', title_text)
+        title_text = ' '.join(title_text.split())
         
-        return blockquote(blockquote_text)
+        # Convert only the numbering to sans-serif and wrap in blockquote
+        formatted_number = to_math_sans_plain(numbering.zfill(3))
+        blockquote_text = blockquote(f"[{formatted_number}]")
+        
+        # Return with blockquote for numbering only, then title text
+        return f"{blockquote_text}{title_text}"
     
     # Old format handling (for backward compatibility)
     else:
@@ -101,8 +106,8 @@ def process_caption(text: str, numbering: str) -> str:
         
         # Remove numbered bullets (e.g., "1.", "2.")
         before_delim = re.sub(r'\b\d+\.\s*', '', before_delim)
-        # Remove non-alphanumeric characters except spaces, hyphens, and colons
-        before_delim = re.sub(r'[^A-Za-z0-9\s\-:]', '', before_delim)
+        # Clean the text
+        before_delim = re.sub(r'[^\w\s\-:]', '', before_delim)
         before_delim = ' '.join(before_delim.split())
         
         after_delim = parts[1].strip() if len(parts) > 1 else ''
@@ -111,11 +116,15 @@ def process_caption(text: str, numbering: str) -> str:
         if after_delim:
             after_delim = re.sub(r'(?si)Batch.*', '', after_delim).strip()
         
-        # Convert only the numbering to sans-serif
+        # Convert only the numbering to sans-serif and wrap in blockquote
         formatted_number = to_math_sans_plain(numbering.zfill(3))
-        blockquote_text = f"[{formatted_number}] {before_delim}"
+        blockquote_text = blockquote(f"[{formatted_number}]")
         
-        return blockquote(blockquote_text) + (f"\n{after_delim}" if after_delim else '')
+        # Return with blockquote for numbering only, then title text
+        result = f"{blockquote_text}{before_delim}"
+        if after_delim:
+            result += f"\n{after_delim}"
+        return result
 
 # Handlers
 @bot.on_message(filters.media)
@@ -148,10 +157,10 @@ async def start_cmd(_, message):
         "Topic: Home -> Grammar -> Practice -> Video->\n"
         "Batch: ACHIEVERS BATCH 7.0 (3 in 1 Batch)\n"
         "Extracted By: https://tinyurl.com/allcompetitionclasses</code>\n\n"
-        "• Text from Title line (without the number) becomes numbered title\n"
+        "• Text from Title line (without the number) becomes the title\n"
         "• Everything after Topic is removed\n"
-        "• Only numbering is formatted in sans-serif font\n"
-        "• Title text remains in normal font",
+        "• Numbering is formatted in sans-serif font inside blockquote\n"
+        "• Format: <blockquote>[𝟶𝟹𝟺]</blockquote>Subject Verb - Agreement - 2",
         parse_mode=enums.ParseMode.HTML
     )
 
@@ -166,6 +175,6 @@ async def number_control(_, message):
             except: pass
         save_number(current_number)
         formatted = to_math_sans_plain(str(current_number).zfill(3))
-        await message.reply(f"Current numbering: {formatted}")
+        await message.reply(f"Current numbering: <blockquote>[{formatted}]</blockquote>", parse_mode=enums.ParseMode.HTML)
 
 bot.run()
