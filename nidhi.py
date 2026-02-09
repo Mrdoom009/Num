@@ -56,25 +56,32 @@ def blockquote(text: str) -> str:
 
 # Text processing for new format
 def extract_title_from_new_format(text: str) -> str:
-    # Split by lines
+    # Split the entire caption by lines
     lines = text.split('\n')
-    title_line = None
+    title_line_content = None
     
-    # Find the line that starts with "Title:"
+    # Process each line until we find "Topic:" line
     for line in lines:
-        if line.strip().startswith("Title:"):
-            title_line = line.strip()
+        # If we encounter "Topic:" line, stop processing further lines
+        if line.strip().startswith("Topic:"):
             break
+            
+        # Find the line that starts with "Title:"
+        if line.strip().startswith("Title:"):
+            title_line_content = line.strip()
     
-    if not title_line:
+    if not title_line_content:
         return ""
     
     # Remove "Title:" prefix
-    title_text = title_line.replace("Title:", "").strip()
+    title_text = title_line_content.replace("Title:", "").strip()
     
-    # Remove the number between "Title:" and the actual text
-    # Pattern: optional spaces, digits, optional spaces, then the actual title
-    title_text = re.sub(r'^\s*\d+\s*', '', title_text)
+    # Try to remove leading number if it exists (only if it's a standalone number)
+    # Check if the first word is all digits, then remove it
+    words = title_text.split()
+    if words and words[0].isdigit():
+        # Remove the first word (the number) and join the rest
+        title_text = ' '.join(words[1:]).strip()
     
     return title_text.strip()
 
@@ -84,11 +91,25 @@ def process_caption(text: str, numbering: str) -> str:
         # Extract title from new format
         title_text = extract_title_from_new_format(text)
         
+        # If title_text is empty after extraction, try to get text after "Title:" without removing anything
         if not title_text:
-            title_text = "Untitled"
+            # Find the Title: line and get everything after "Title:"
+            lines = text.split('\n')
+            for line in lines:
+                if line.strip().startswith("Title:"):
+                    title_text = line.strip().replace("Title:", "").strip()
+                    # Remove the leading number if it exists
+                    words = title_text.split()
+                    if words and words[0].isdigit():
+                        title_text = ' '.join(words[1:]).strip()
+                    break
         
-        # Clean the title text
-        title_text = re.sub(r'[^\w\s\-]', '', title_text)
+        # If still empty, use empty string
+        if not title_text:
+            title_text = ""
+        
+        # Don't clean the title text - keep Hindi/Unicode characters and punctuation
+        # Just remove extra whitespace
         title_text = ' '.join(title_text.split())
         
         # Convert only the numbering to sans-serif and wrap in blockquote
@@ -106,8 +127,7 @@ def process_caption(text: str, numbering: str) -> str:
         
         # Remove numbered bullets (e.g., "1.", "2.")
         before_delim = re.sub(r'\b\d+\.\s*', '', before_delim)
-        # Clean the text
-        before_delim = re.sub(r'[^\w\s\-:]', '', before_delim)
+        # For old format, preserve all characters (including Unicode/Hindi)
         before_delim = ' '.join(before_delim.split())
         
         after_delim = parts[1].strip() if len(parts) > 1 else ''
@@ -158,7 +178,8 @@ async def start_cmd(_, message):
         "Batch: ACHIEVERS BATCH 7.0 (3 in 1 Batch)\n"
         "Extracted By: https://tinyurl.com/allcompetitionclasses</code>\n\n"
         "• Text from Title line (without the number) becomes the title\n"
-        "• Everything after Topic is removed\n"
+        "• Everything after Topic: (including Topic: line) is removed\n"
+        "• Works with Hindi and other Unicode characters\n"
         "• Numbering is formatted in sans-serif font inside blockquote\n"
         "• Format: <blockquote>[𝟶𝟹𝟺]</blockquote>Subject Verb - Agreement - 2",
         parse_mode=enums.ParseMode.HTML
