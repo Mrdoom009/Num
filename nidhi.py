@@ -64,6 +64,12 @@ def extract_title_simple(text: str) -> str:
         # Get the text between Title: and Topic:
         title_text = match.group(1).strip()
         
+        # Check if "Rohit" appears in the text before Topic:
+        # If found, only take text up to "Rohit"
+        rohit_match = re.search(r'(.*?)Rohit', title_text, re.DOTALL | re.IGNORECASE)
+        if rohit_match:
+            title_text = rohit_match.group(1).strip()
+        
         # Remove any leading number and space at the beginning
         # This removes numbers like "6 " at the start
         title_text = re.sub(r'^\d+\s*', '', title_text)
@@ -93,8 +99,13 @@ def process_caption(text: str, numbering: str) -> str:
                 else:
                     title_text = after_title.strip()
             
-            # Remove any leading number
+            # Check for "Rohit" in the extracted text
             if title_text:
+                rohit_match = re.search(r'(.*?)Rohit', title_text, re.DOTALL | re.IGNORECASE)
+                if rohit_match:
+                    title_text = rohit_match.group(1).strip()
+                
+                # Remove any leading number
                 title_text = re.sub(r'^\d+\s*', '', title_text)
         
         # Just remove extra whitespace, keep all characters
@@ -174,6 +185,7 @@ async def start_cmd(_, message):
         "Extracted By: https://tinyurl.com/allcompetitionclasses</code>\n\n"
         "• Removes everything before and including 'Title:'\n"
         "• Removes everything after and including 'Topic:'\n"
+        "• If 'Rohit' appears before 'Topic:', removes everything after 'Rohit' including 'Rohit'\n"
         "• Removes any number at the start of the title text\n"
         "• Numbering is formatted in sans-serif font inside blockquote\n"
         "• Format: <blockquote>[𝟶𝟹𝟺]</blockquote>Subject Verb - Agreement - 2\n\n"
