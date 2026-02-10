@@ -54,70 +54,62 @@ def to_math_sans_plain(text: str) -> str:
 def blockquote(text: str) -> str:
     return f"<blockquote>{text}</blockquote>"
 
-# Text processing for new format
-def extract_title_from_new_format(text: str) -> str:
-    # Split the entire caption by lines
-    lines = text.split('\n')
-    title_line_content = None
+# Simple text extraction function
+def extract_title_simple(text: str) -> str:
+    # Find everything after "Title:" and before "Topic:"
+    # Using regex to capture everything between Title: and Topic:
+    match = re.search(r'Title:(.*?)Topic:', text, re.DOTALL)
     
-    # Process each line until we find "Topic:" line
-    for line in lines:
-        # If we encounter "Topic:" line, stop processing further lines
-        if line.strip().startswith("Topic:"):
-            break
-            
-        # Find the line that starts with "Title:"
-        if line.strip().startswith("Title:"):
-            title_line_content = line.strip()
+    if match:
+        # Get the text between Title: and Topic:
+        title_text = match.group(1).strip()
+        
+        # Remove any leading number and space at the beginning
+        # This removes numbers like "6 " at the start
+        title_text = re.sub(r'^\d+\s*', '', title_text)
+        
+        return title_text.strip()
     
-    if not title_line_content:
-        return ""
-    
-    # Remove "Title:" prefix
-    title_text = title_line_content.replace("Title:", "").strip()
-    
-    # Try to remove leading number if it exists (only if it's a standalone number)
-    # Check if the first word is all digits, then remove it
-    words = title_text.split()
-    if words and words[0].isdigit():
-        # Remove the first word (the number) and join the rest
-        title_text = ' '.join(words[1:]).strip()
-    
-    return title_text.strip()
+    # If no match found, return empty string
+    return ""
 
 def process_caption(text: str, numbering: str) -> str:
-    # Check if it's the new format (contains "Title:" and "Topic:")
+    # Check if it contains both "Title:" and "Topic:"
     if "Title:" in text and "Topic:" in text:
-        # Extract title from new format
-        title_text = extract_title_from_new_format(text)
+        # Extract title using simple logic
+        title_text = extract_title_simple(text)
         
-        # If title_text is empty after extraction, try to get text after "Title:" without removing anything
+        # If empty, try alternative extraction
         if not title_text:
-            # Find the Title: line and get everything after "Title:"
-            lines = text.split('\n')
-            for line in lines:
-                if line.strip().startswith("Title:"):
-                    title_text = line.strip().replace("Title:", "").strip()
-                    # Remove the leading number if it exists
-                    words = title_text.split()
-                    if words and words[0].isdigit():
-                        title_text = ' '.join(words[1:]).strip()
-                    break
+            # Try to find Title: and get text until end or Topic:
+            title_start = text.find("Title:")
+            if title_start != -1:
+                # Get text starting from after "Title:"
+                after_title = text[title_start + len("Title:"):]
+                # Find where "Topic:" starts (if exists)
+                topic_start = after_title.find("Topic:")
+                if topic_start != -1:
+                    title_text = after_title[:topic_start].strip()
+                else:
+                    title_text = after_title.strip()
+            
+            # Remove any leading number
+            if title_text:
+                title_text = re.sub(r'^\d+\s*', '', title_text)
         
-        # If still empty, use empty string
-        if not title_text:
-            title_text = ""
-        
-        # Don't clean the title text - keep Hindi/Unicode characters and punctuation
-        # Just remove extra whitespace
-        title_text = ' '.join(title_text.split())
+        # Just remove extra whitespace, keep all characters
+        if title_text:
+            title_text = ' '.join(title_text.split())
         
         # Convert only the numbering to sans-serif and wrap in blockquote
         formatted_number = to_math_sans_plain(numbering.zfill(3))
         blockquote_text = blockquote(f"[{formatted_number}]")
         
         # Return with blockquote for numbering only, then title text
-        return f"{blockquote_text}{title_text}"
+        if title_text:
+            return f"{blockquote_text}{title_text}"
+        else:
+            return f"{blockquote_text}"
     
     # Old format handling (for backward compatibility)
     else:
@@ -163,8 +155,11 @@ async def handle_media(client, message: Message):
             print(f"Caption edit failed: {e}")
             await message.reply_video(message.video.file_id, caption=new_caption, parse_mode=enums.ParseMode.HTML)
     elif message.document and message.document.mime_type == "application/pdf":
-        try: await message.edit_caption('')
-        except: pass
+        # For PDFs, just remove the caption entirely
+        try: 
+            await message.edit_caption('')
+        except: 
+            pass
 
 # Command handlers
 @bot.on_message(filters.command("start"))
@@ -177,11 +172,12 @@ async def start_cmd(_, message):
         "Topic: Home -> Grammar -> Practice -> Video->\n"
         "Batch: ACHIEVERS BATCH 7.0 (3 in 1 Batch)\n"
         "Extracted By: https://tinyurl.com/allcompetitionclasses</code>\n\n"
-        "• Text from Title line (without the number) becomes the title\n"
-        "• Everything after Topic: (including Topic: line) is removed\n"
-        "• Works with Hindi and other Unicode characters\n"
+        "• Removes everything before and including 'Title:'\n"
+        "• Removes everything after and including 'Topic:'\n"
+        "• Removes any number at the start of the title text\n"
         "• Numbering is formatted in sans-serif font inside blockquote\n"
-        "• Format: <blockquote>[𝟶𝟹𝟺]</blockquote>Subject Verb - Agreement - 2",
+        "• Format: <blockquote>[𝟶𝟹𝟺]</blockquote>Subject Verb - Agreement - 2\n\n"
+        "For PDFs: Caption is completely removed",
         parse_mode=enums.ParseMode.HTML
     )
 
