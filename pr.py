@@ -30,7 +30,7 @@ def clean_caption(text: str) -> str:
         text = text.replace(suffix, "")
     
     # Step 2: Remove all dots (.) from the remaining text
-    text = text.replace(".", "")
+    text = text.replace(".", " ")
     
     # Trim extra whitespace
     return text.strip()
