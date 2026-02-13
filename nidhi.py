@@ -57,21 +57,23 @@ def blockquote(text: str) -> str:
 # Simple text extraction function
 def extract_title_simple(text: str) -> str:
     # Find everything after "Title:" and before "Topic:"
-    # Using regex to capture everything between Title: and Topic:
     match = re.search(r'Title:(.*?)Topic:', text, re.DOTALL)
     
     if match:
         # Get the text between Title: and Topic:
         title_text = match.group(1).strip()
         
-        # Check if "Rohit" appears in the text before Topic:
-        # If found, only take text up to "Rohit"
+        # Check for "Rohit" first (case-insensitive)
         rohit_match = re.search(r'(.*?)Rohit', title_text, re.DOTALL | re.IGNORECASE)
         if rohit_match:
             title_text = rohit_match.group(1).strip()
+        else:
+            # If "Rohit" not found, check for "Alle" (case-insensitive)
+            alle_match = re.search(r'(.*?)Alle', title_text, re.DOTALL | re.IGNORECASE)
+            if alle_match:
+                title_text = alle_match.group(1).strip()
         
         # Remove any leading number and space at the beginning
-        # This removes numbers like "6 " at the start
         title_text = re.sub(r'^\d+\s*', '', title_text)
         
         return title_text.strip()
@@ -80,7 +82,7 @@ def extract_title_simple(text: str) -> str:
     return ""
 
 def process_caption(text: str, numbering: str) -> str:
-    # Check if it contains both "Title:" and "Topic:"
+    # Check if it's the new format (contains "Title:" and "Topic:")
     if "Title:" in text and "Topic:" in text:
         # Extract title using simple logic
         title_text = extract_title_simple(text)
@@ -99,11 +101,17 @@ def process_caption(text: str, numbering: str) -> str:
                 else:
                     title_text = after_title.strip()
             
-            # Check for "Rohit" in the extracted text
+            # Apply "Rohit" / "Alle" removal in fallback too
             if title_text:
+                # Check for Rohit first
                 rohit_match = re.search(r'(.*?)Rohit', title_text, re.DOTALL | re.IGNORECASE)
                 if rohit_match:
                     title_text = rohit_match.group(1).strip()
+                else:
+                    # Check for Alle
+                    alle_match = re.search(r'(.*?)Alle', title_text, re.DOTALL | re.IGNORECASE)
+                    if alle_match:
+                        title_text = alle_match.group(1).strip()
                 
                 # Remove any leading number
                 title_text = re.sub(r'^\d+\s*', '', title_text)
@@ -186,6 +194,7 @@ async def start_cmd(_, message):
         "• Removes everything before and including 'Title:'\n"
         "• Removes everything after and including 'Topic:'\n"
         "• If 'Rohit' appears before 'Topic:', removes everything after 'Rohit' including 'Rohit'\n"
+        "• If 'Rohit' is not found, checks for 'Alle' and removes everything after 'Alle' including 'Alle'\n"
         "• Removes any number at the start of the title text\n"
         "• Numbering is formatted in sans-serif font inside blockquote\n"
         "• Format: <blockquote>[𝟶𝟹𝟺]</blockquote>Subject Verb - Agreement - 2\n\n"
