@@ -173,7 +173,7 @@ async def handle_media(client, message: Message):
         except Exception as e:
             print(f"Caption edit failed: {e}")
             await message.reply_video(message.video.file_id, caption=new_caption, parse_mode=enums.ParseMode.HTML)
-    elif message.document and message.document.mime_type == "application/pdf":
+    elif message.document and message.document.mime_type == "application/pdf", "text/html":
         # For PDFs, just remove the caption entirely
         try: 
             await message.edit_caption('')
