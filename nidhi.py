@@ -54,104 +54,43 @@ def to_math_sans_plain(text: str) -> str:
 def blockquote(text: str) -> str:
     return f"<blockquote>{text}</blockquote>"
 
-# Simple text extraction function
-def extract_title_simple(text: str) -> str:
-    # Find everything after "Title:" and before "Topic:"
-    match = re.search(r'Title:(.*?)Topic:', text, re.DOTALL)
-    
-    if match:
-        # Get the text between Title: and Topic:
-        title_text = match.group(1).strip()
-        
-        # Check for "Rohit" first (case-insensitive)
-        rohit_match = re.search(r'(.*?)Rohit', title_text, re.DOTALL | re.IGNORECASE)
-        if rohit_match:
-            title_text = rohit_match.group(1).strip()
-        else:
-            # If "Rohit" not found, check for "Alle" (case-insensitive)
-            alle_match = re.search(r'(.*?)Alle', title_text, re.DOTALL | re.IGNORECASE)
-            if alle_match:
-                title_text = alle_match.group(1).strip()
-        
-        # Remove any leading number and space at the beginning
-        title_text = re.sub(r'^\d+\s*', '', title_text)
-        
-        return title_text.strip()
-    
-    # If no match found, return empty string
-    return ""
-
+# New caption processing logic
 def process_caption(text: str, numbering: str) -> str:
-    # Check if it's the new format (contains "Title:" and "Topic:")
-    if "Title:" in text and "Topic:" in text:
-        # Extract title using simple logic
-        title_text = extract_title_simple(text)
-        
-        # If empty, try alternative extraction
-        if not title_text:
-            # Try to find Title: and get text until end or Topic:
-            title_start = text.find("Title:")
-            if title_start != -1:
-                # Get text starting from after "Title:"
-                after_title = text[title_start + len("Title:"):]
-                # Find where "Topic:" starts (if exists)
-                topic_start = after_title.find("Topic:")
-                if topic_start != -1:
-                    title_text = after_title[:topic_start].strip()
-                else:
-                    title_text = after_title.strip()
-            
-            # Apply "Rohit" / "Alle" removal in fallback too
-            if title_text:
-                # Check for Rohit first
-                rohit_match = re.search(r'(.*?)Rohit', title_text, re.DOTALL | re.IGNORECASE)
-                if rohit_match:
-                    title_text = rohit_match.group(1).strip()
-                else:
-                    # Check for Alle
-                    alle_match = re.search(r'(.*?)Alle', title_text, re.DOTALL | re.IGNORECASE)
-                    if alle_match:
-                        title_text = alle_match.group(1).strip()
-                
-                # Remove any leading number
-                title_text = re.sub(r'^\d+\s*', '', title_text)
-        
-        # Just remove extra whitespace, keep all characters
-        if title_text:
-            title_text = ' '.join(title_text.split())
-        
-        # Convert only the numbering to sans-serif and wrap in blockquote
+    # New format: contains "Title:"
+    if "Title:" in text:
+        # 1. Remove everything before and including "Title:"
+        after_title = text.split("Title:", 1)[-1].strip()
+
+        # 2. Remove leading number (digits, possibly followed by dot/space) – discard it
+        after_title = re.sub(r'^\d+(?:\.|\s+)?', '', after_title).lstrip()
+
+        # 3. Remove everything from the first "[" onward (including the bracket)
+        if "[" in after_title:
+            after_title = after_title.split("[", 1)[0].strip()
+
+        # 4. Clean whitespace (collapse multiple spaces/newlines)
+        title_text = ' '.join(after_title.split())
+
+        # 5. Format the bot's own numbering
         formatted_number = to_math_sans_plain(numbering.zfill(3))
         blockquote_text = blockquote(f"[{formatted_number}]")
-        
-        # Return with blockquote for numbering only, then title text
-        if title_text:
-            return f"{blockquote_text}{title_text}"
-        else:
-            return f"{blockquote_text}"
-    
-    # Old format handling (for backward compatibility)
+
+        return f"{blockquote_text}{title_text}" if title_text else blockquote_text
+
+    # Old format handling (backward compatibility)
     else:
-        # Split at first "//"
         parts = text.split('//', 1)
         before_delim = parts[0].strip()
-        
-        # Remove numbered bullets (e.g., "1.", "2.")
         before_delim = re.sub(r'\b\d+\.\s*', '', before_delim)
-        # For old format, preserve all characters (including Unicode/Hindi)
         before_delim = ' '.join(before_delim.split())
-        
+
         after_delim = parts[1].strip() if len(parts) > 1 else ''
-        
-        # Remove everything after Batch (case-insensitive, multi-line)
         if after_delim:
             after_delim = re.sub(r'(?si)Batch.*', '', after_delim).strip()
-        
-        # Convert only the numbering to sans-serif and wrap in blockquote
+
         formatted_number = to_math_sans_plain(numbering.zfill(3))
         blockquote_text = blockquote(f"[{formatted_number}]")
-        
-        # Return with blockquote for numbering only, then title text
+
         result = f"{blockquote_text}{before_delim}"
         if after_delim:
             result += f"\n{after_delim}"
@@ -166,7 +105,7 @@ async def handle_media(client, message: Message):
             num = current_number
             current_number += 1
             save_number(current_number)
-        
+
         new_caption = process_caption(message.caption or '', str(num))
         try:
             await message.edit_caption(new_caption, parse_mode=enums.ParseMode.HTML)
@@ -192,10 +131,8 @@ async def start_cmd(_, message):
         "Batch: ACHIEVERS BATCH 7.0 (3 in 1 Batch)\n"
         "Extracted By: https://tinyurl.com/allcompetitionclasses</code>\n\n"
         "• Removes everything before and including 'Title:'\n"
-        "• Removes everything after and including 'Topic:'\n"
-        "• If 'Rohit' appears before 'Topic:', removes everything after 'Rohit' including 'Rohit'\n"
-        "• If 'Rohit' is not found, checks for 'Alle' and removes everything after 'Alle' including 'Alle'\n"
-        "• Removes any number at the start of the title text\n"
+        "• Removes any leading number from the title text\n"
+        "• Removes everything after and including the first '[' in the title\n"
         "• Numbering is formatted in sans-serif font inside blockquote\n"
         "• Format: <blockquote>[𝟶𝟹𝟺]</blockquote>Subject Verb - Agreement - 2\n\n"
         "For PDFs: Caption is completely removed",
