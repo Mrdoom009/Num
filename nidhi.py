@@ -54,7 +54,7 @@ def to_math_sans_plain(text: str) -> str:
 def blockquote(text: str) -> str:
     return f"<blockquote>{text}</blockquote>"
 
-# Updated caption processing logic
+# Updated caption processing logic – now removes everything after the date (across lines)
 def process_caption(text: str, numbering: str) -> str:
     # New format: contains "Title:"
     if "Title:" in text:
@@ -64,9 +64,8 @@ def process_caption(text: str, numbering: str) -> str:
         # 2. Remove leading number (digits followed by dot or space) – discard it
         after_title = re.sub(r'^\d+(?:\.|\s+)?', '', after_title).lstrip()
 
-        # 3. Remove everything from a YYYY-MM-DD date onward (including the date)
-        #    Pattern: 4 digits, hyphen, 2 digits, hyphen, 2 digits
-        after_title = re.sub(r'\d{4}-\d{2}-\d{2}.*', '', after_title).strip()
+        # 3. Remove everything from a YYYY-MM-DD date onward (including the date and all following lines)
+        after_title = re.sub(r'\d{4}-\d{2}-\d{2}.*', '', after_title, flags=re.DOTALL).strip()
 
         # 4. Clean whitespace
         title_text = ' '.join(after_title.split())
