@@ -54,21 +54,21 @@ def to_math_sans_plain(text: str) -> str:
 def blockquote(text: str) -> str:
     return f"<blockquote>{text}</blockquote>"
 
-# New caption processing logic
+# Updated caption processing logic
 def process_caption(text: str, numbering: str) -> str:
     # New format: contains "Title:"
     if "Title:" in text:
         # 1. Remove everything before and including "Title:"
         after_title = text.split("Title:", 1)[-1].strip()
 
-        # 2. Remove leading number (digits, possibly followed by dot/space) – discard it
+        # 2. Remove leading number (digits followed by dot or space) – discard it
         after_title = re.sub(r'^\d+(?:\.|\s+)?', '', after_title).lstrip()
 
-        # 3. Remove everything from the first "[" onward (including the bracket)
-        if "[" in after_title:
-            after_title = after_title.split("[", 1)[0].strip()
+        # 3. Remove everything from a YYYY-MM-DD date onward (including the date)
+        #    Pattern: 4 digits, hyphen, 2 digits, hyphen, 2 digits
+        after_title = re.sub(r'\d{4}-\d{2}-\d{2}.*', '', after_title).strip()
 
-        # 4. Clean whitespace (collapse multiple spaces/newlines)
+        # 4. Clean whitespace
         title_text = ' '.join(after_title.split())
 
         # 5. Format the bot's own numbering
@@ -123,19 +123,9 @@ async def handle_media(client, message: Message):
 @bot.on_message(filters.command("start"))
 async def start_cmd(_, message):
     await message.reply(
-        "📚 <b>Caption Formatter Bot</b>\n\n"
-        "Send videos with captions formatted as:\n"
-        "<code>Index: 034\n"
-        "Title: 6 Subject Verb - Agreement - 2\n"
-        "Topic: Home -> Grammar -> Practice -> Video->\n"
-        "Batch: ACHIEVERS BATCH 7.0 (3 in 1 Batch)\n"
-        "Extracted By: https://tinyurl.com/allcompetitionclasses</code>\n\n"
-        "• Removes everything before and including 'Title:'\n"
-        "• Removes any leading number from the title text\n"
-        "• Removes everything after and including the first '[' in the title\n"
-        "• Numbering is formatted in sans-serif font inside blockquote\n"
-        "• Format: <blockquote>[𝟶𝟹𝟺]</blockquote>Subject Verb - Agreement - 2\n\n"
-        "For PDFs: Caption is completely removed",
+        "✅ Bot is running.\n\n"
+        "Send a video – its caption will be formatted automatically.\n"
+        "Use /reset or /set <number> to control numbering.",
         parse_mode=enums.ParseMode.HTML
     )
 
