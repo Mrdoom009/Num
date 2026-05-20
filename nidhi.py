@@ -53,45 +53,38 @@ def to_math_sans_plain(text: str) -> str:
 def blockquote(text: str) -> str:
     return f"<blockquote>{text}</blockquote>"
 
-# Clean PDF/HTML filename: remove leading number (e.g., "1. ") and trailing date (YYYY-MM-DD) before extension
+# NEW: Clean PDF/HTML filename: remove Class_01_, Class_02_, etc., also leading numbers and trailing date
 def clean_document_filename(filename: str) -> str:
     name, ext = os.path.splitext(filename)
-    # Remove leading numbering: digits followed by dot or space, optionally more spaces
+    # Remove leading numbering (e.g., "1. " or "2 ")
     name = re.sub(r'^\d+(?:\.|\s+)\s*', '', name)
-    # Remove trailing date pattern YYYY-MM-DD (and any surrounding spaces/dashes)
+    # Remove Class_XX_ pattern (Class_ followed by digits and underscore)
+    name = re.sub(r'Class_\d+_', '', name)
+    # Remove trailing date YYYY-MM-DD
     name = re.sub(r'[\s_-]*\d{4}-\d{2}-\d{2}[\s_-]*$', '', name)
-    # Clean up any remaining multiple spaces/dashes and strip
+    # Clean up extra spaces/dashes
     name = re.sub(r'[\s_-]+', ' ', name).strip()
-    # If name becomes empty, keep a default
     if not name:
         name = "document"
     return name + ext
 
-# Caption processing for videos (unchanged, works correctly)
+# NEW: Caption processing for videos
 def process_caption(text: str, numbering: str) -> str:
-    if "Title:" in text:
-        after_title = text.split("Title:", 1)[-1].strip()
-        after_title = re.sub(r'^\d+(?:\.|\s+)?', '', after_title).lstrip()
-        after_title = re.sub(r'\d{4}-\d{2}-\d{2}.*', '', after_title, flags=re.DOTALL).strip()
-        title_text = ' '.join(after_title.split())
-        formatted_number = to_math_sans_plain(numbering.zfill(3))
-        blockquote_text = blockquote(f"[{formatted_number}]")
-        return f"{blockquote_text}{title_text}" if title_text else blockquote_text
-    else:
-        # Old format (unchanged)
-        parts = text.split('//', 1)
-        before_delim = parts[0].strip()
-        before_delim = re.sub(r'\b\d+\.\s*', '', before_delim)
-        before_delim = ' '.join(before_delim.split())
-        after_delim = parts[1].strip() if len(parts) > 1 else ''
-        if after_delim:
-            after_delim = re.sub(r'(?si)Batch.*', '', after_delim).strip()
-        formatted_number = to_math_sans_plain(numbering.zfill(3))
-        blockquote_text = blockquote(f"[{formatted_number}]")
-        result = f"{blockquote_text}{before_delim}"
-        if after_delim:
-            result += f"\n{after_delim}"
-        return result
+    # If caption contains "||", remove everything before it (including "||")
+    if "||" in text:
+        # Split at first "||" and take the part after it
+        text = text.split("||", 1)[-1].strip()
+    # Remove everything from a date YYYY-MM-DD onward (including the date)
+    # Use DOTALL so it removes across newlines
+    text = re.sub(r'\d{4}-\d{2}-\d{2}.*', '', text, flags=re.DOTALL).strip()
+    # Remove any leading number (e.g., "39." or "39 ") that might remain
+    text = re.sub(r'^\d+(?:\.|\s+)?', '', text).lstrip()
+    # Clean whitespace
+    title_text = ' '.join(text.split())
+    # Format bot's numbering
+    formatted_number = to_math_sans_plain(numbering.zfill(3))
+    blockquote_text = blockquote(f"[{formatted_number}]")
+    return f"{blockquote_text}{title_text}" if title_text else blockquote_text
 
 # Main media handler
 @bot.on_message(filters.media)
@@ -148,8 +141,8 @@ async def handle_media(client, message: Message):
 async def start_cmd(_, message):
     await message.reply(
         "✅ Bot is running.\n\n"
-        "• Videos: Captions are cleaned and automatically numbered.\n"
-        "• PDF/HTML: Leading number and trailing date are removed from filename; caption cleared.\n"
+        "• Videos: Everything before `||` is removed, and everything after a date (YYYY-MM-DD) is removed.\n"
+        "• PDF/HTML: Leading numbers, `Class_XX_` patterns, and trailing dates are removed from filename; caption cleared.\n"
         "Use /reset or /set <number> to control video numbering.",
         parse_mode=enums.ParseMode.HTML
     )
