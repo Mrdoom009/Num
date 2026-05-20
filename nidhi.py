@@ -53,7 +53,7 @@ def to_math_sans_plain(text: str) -> str:
 def blockquote(text: str) -> str:
     return f"<blockquote>{text}</blockquote>"
 
-# NEW: Clean PDF/HTML filename: remove Class_01_, Class_02_, etc., also leading numbers and trailing date
+# Clean PDF/HTML filename: remove Class_01_, leading numbers, trailing date
 def clean_document_filename(filename: str) -> str:
     name, ext = os.path.splitext(filename)
     # Remove leading numbering (e.g., "1. " or "2 ")
@@ -68,14 +68,14 @@ def clean_document_filename(filename: str) -> str:
         name = "document"
     return name + ext
 
-# NEW: Caption processing for videos
+# Updated caption processing for videos – now removes everything before "Class-XX" (including it)
 def process_caption(text: str, numbering: str) -> str:
-    # If caption contains "||", remove everything before it (including "||")
-    if "||" in text:
-        # Split at first "||" and take the part after it
-        text = text.split("||", 1)[-1].strip()
+    # If caption contains "Class-01", "Class-02", etc., remove everything before and including that pattern
+    match = re.search(r'Class-\d+', text)
+    if match:
+        # Keep everything after the matched pattern
+        text = text[match.end():].strip()
     # Remove everything from a date YYYY-MM-DD onward (including the date)
-    # Use DOTALL so it removes across newlines
     text = re.sub(r'\d{4}-\d{2}-\d{2}.*', '', text, flags=re.DOTALL).strip()
     # Remove any leading number (e.g., "39." or "39 ") that might remain
     text = re.sub(r'^\d+(?:\.|\s+)?', '', text).lstrip()
@@ -106,7 +106,6 @@ async def handle_media(client, message: Message):
         fname = message.document.file_name
         if fname.lower().endswith((".pdf", ".html")):
             new_name = clean_document_filename(fname)
-            # If filename changed, re-upload renamed file and delete original
             if new_name != fname:
                 try:
                     file_path = await client.download_media(message)
@@ -124,13 +123,11 @@ async def handle_media(client, message: Message):
                         os.remove(new_path)
                 except Exception as e:
                     print(f"PDF rename/re-upload failed: {e}")
-                    # Fallback: just clear caption
                     try:
                         await message.edit_caption('')
                     except:
                         pass
             else:
-                # No change – just clear caption
                 try:
                     await message.edit_caption('')
                 except:
@@ -141,7 +138,7 @@ async def handle_media(client, message: Message):
 async def start_cmd(_, message):
     await message.reply(
         "✅ Bot is running.\n\n"
-        "• Videos: Everything before `||` is removed, and everything after a date (YYYY-MM-DD) is removed.\n"
+        "• Videos: Everything before `Class-01` (or any `Class-XX`) is removed, then everything after a date (YYYY-MM-DD) is removed.\n"
         "• PDF/HTML: Leading numbers, `Class_XX_` patterns, and trailing dates are removed from filename; caption cleared.\n"
         "Use /reset or /set <number> to control video numbering.",
         parse_mode=enums.ParseMode.HTML
