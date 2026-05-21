@@ -68,10 +68,10 @@ def clean_document_filename(filename: str) -> str:
         name = "document"
     return name + ext
 
-# Updated caption processing for videos – now removes everything before "Class-XX" (including it)
+# Updated caption processing for videos – removes everything before and including "Class-01" or "Class -01"
 def process_caption(text: str, numbering: str) -> str:
-    # If caption contains "Class-01", "Class-02", etc., remove everything before and including that pattern
-    match = re.search(r'Class-\d+', text)
+    # Pattern matches "Class-01", "Class -01", "Class- 01", "Class - 01" (optional spaces around hyphen)
+    match = re.search(r'Class\s*-\s*\d+', text)
     if match:
         # Keep everything after the matched pattern
         text = text[match.end():].strip()
@@ -138,7 +138,7 @@ async def handle_media(client, message: Message):
 async def start_cmd(_, message):
     await message.reply(
         "✅ Bot is running.\n\n"
-        "• Videos: Everything before `Class-01` (or any `Class-XX`) is removed, then everything after a date (YYYY-MM-DD) is removed.\n"
+        "• Videos: Everything before `Class-01` (or `Class -01`, with optional spaces) is removed, then everything after a date (YYYY-MM-DD) is removed.\n"
         "• PDF/HTML: Leading numbers, `Class_XX_` patterns, and trailing dates are removed from filename; caption cleared.\n"
         "Use /reset or /set <number> to control video numbering.",
         parse_mode=enums.ParseMode.HTML
