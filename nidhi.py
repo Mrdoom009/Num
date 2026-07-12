@@ -53,19 +53,27 @@ def to_math_sans_plain(text: str) -> str:
 def blockquote(text: str) -> str:
     return f"<blockquote>{text}</blockquote>"
 
-# Video caption processing – Rule 1: cut before+including "Title : number"  Rule 2: cut after+including ".mp4"
+# Video caption processing – final logic
 def process_caption(text: str, numbering: str) -> str:
-    # Step 1: Remove everything up to and including "Title : <number>"
-    title_match = re.search(r'Title\s*:\s*\d+', text, re.IGNORECASE)
-    if title_match:
-        text = text[title_match.end():].strip()
+    # Step 1: Find the word "Title" (case-insensitive)
+    title_word_match = re.search(r'Title', text, re.IGNORECASE)
+    if title_word_match:
+        # Look for the first number after that occurrence
+        after_title = text[title_word_match.end():]
+        number_match = re.search(r'\d+', after_title)
+        if number_match:
+            # The end of the number (relative to the whole string) is:
+            # start of "after_title" in original + end of number match
+            cut_position = title_word_match.end() + number_match.end()
+            text = text[cut_position:].strip()
 
-    # Step 2: Remove everything after and including ".mp4" (case‑insensitive)
+    # Step 2: Remove everything after and including ".mp4" (case-insensitive)
     mp4_match = re.search(r'\.mp4', text, re.IGNORECASE)
     if mp4_match:
         text = text[:mp4_match.start()].strip()
 
-    # Final cleanup – collapse extra spaces
+    # Final cleanup – remove any leading number that may remain (safety)
+    text = re.sub(r'^\d+\s*', '', text)
     title_text = ' '.join(text.split())
 
     # Add bot's automatic numbering
