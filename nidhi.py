@@ -55,8 +55,8 @@ def blockquote(text: str) -> str:
 
 # Video caption processing
 def process_caption(text: str, numbering: str) -> str:
-    # Detect ") " followed by one or more digits
-    pattern = r'\)\s*\d+'
+    # Match either ASCII ")" or fullwidth "）" followed by optional space and digits
+    pattern = r'[\)）]\s*\d+'
     match = re.search(pattern, text)
     if match:
         # Remove everything before and including the matched pattern
@@ -64,6 +64,8 @@ def process_caption(text: str, numbering: str) -> str:
     # Detect "├" and remove everything after including it
     if '├' in text:
         text = text.split('├', 1)[0].strip()
+    # Remove any leftover leading dot or spaces (common after ") 1.")
+    text = text.lstrip('. ')
     # Clean whitespace
     title_text = ' '.join(text.split())
     # Format bot's numbering
@@ -71,8 +73,8 @@ def process_caption(text: str, numbering: str) -> str:
     blockquote_text = blockquote(f"[{formatted_number}]")
     return f"{blockquote_text}{title_text}" if title_text else blockquote_text
 
-# PDF/HTML renaming: find first number in filename, remove everything before it
-# (including the number) and any following spaces.
+# PDF/HTML renaming: find first number, remove everything before it (including the number)
+# and any following spaces.
 def remove_leading_number(filename: str) -> str:
     name, ext = os.path.splitext(filename)
     # Remove from start up to (and including) the first number + optional spaces
@@ -124,7 +126,6 @@ async def handle_media(client, message: Message):
                         os.remove(new_path)
                 except Exception as e:
                     print(f"PDF rename/re-upload failed: {e}")
-            # If no rename needed, nothing else to do
 
 # Command handlers
 @bot.on_message(filters.command("start"))
