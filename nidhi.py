@@ -53,21 +53,45 @@ def to_math_sans_plain(text: str) -> str:
 def blockquote(text: str) -> str:
     return f"<blockquote>{text}</blockquote>"
 
-# Video caption processing
+# Video caption processing with extensive debugging
 def process_caption(text: str, numbering: str) -> str:
-    # Match either ASCII ")" or fullwidth "）" followed by optional space and digits
-    pattern = r'[\)）]\s*\d+'
-    match = re.search(pattern, text)
+    print(f"\n=== PROCESSING CAPTION ===")
+    print(f"Raw caption: {repr(text)}")
+    print(f"Encoded (first 200 chars): {text.encode('utf-8')[:200]}")
+
+    # Try multiple patterns: ASCII ), fullwidth ）, heavy ) , etc.
+    # Pattern: any closing bracket character followed by optional whitespace and digits
+    patterns = [
+        r'\)\s*\d+',                # ASCII )
+        r'）\s*\d+',                # fullwidth
+        r'[)\]）〉〕]+\s*\d+',        # several common brackets
+        r'[)\p{Pe}]\s*\d+',         # any closing punctuation (needs regex.UNICODE, but python re doesn't support \p)
+    ]
+
+    match = None
+    for pat in patterns:
+        match = re.search(pat, text)
+        if match:
+            print(f"MATCH found with pattern '{pat}': '{match.group()}'")
+            break
+
     if match:
-        # Remove everything before and including the matched pattern
         text = text[match.end():].strip()
+        print(f"After removal: {repr(text)}")
+    else:
+        print("NO match found – check the bracket character manually.")
+
     # Detect "├" and remove everything after including it
     if '├' in text:
         text = text.split('├', 1)[0].strip()
-    # Remove any leftover leading dot or spaces (common after ") 1.")
+        print(f"After ├ split: {repr(text)}")
+
+    # Remove leftover leading dot or spaces
     text = text.lstrip('. ')
     # Clean whitespace
     title_text = ' '.join(text.split())
+    print(f"Final title: {repr(title_text)}")
+
     # Format bot's numbering
     formatted_number = to_math_sans_plain(numbering.zfill(3))
     blockquote_text = blockquote(f"[{formatted_number}]")
@@ -77,7 +101,6 @@ def process_caption(text: str, numbering: str) -> str:
 # and any following spaces.
 def remove_leading_number(filename: str) -> str:
     name, ext = os.path.splitext(filename)
-    # Remove from start up to (and including) the first number + optional spaces
     name = re.sub(r'^.*?\d+\s*', '', name)
     if not name:
         name = "document"
@@ -102,12 +125,10 @@ async def handle_media(client, message: Message):
     elif message.document and message.document.file_name:
         fname = message.document.file_name
         if fname.lower().endswith((".pdf", ".html")):
-            # First clear the caption
             try:
                 await message.edit_caption('')
             except:
                 pass
-            # Rename file by removing leading numbering (new rule)
             new_name = remove_leading_number(fname)
             if new_name != fname:
                 try:
