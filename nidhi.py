@@ -53,42 +53,48 @@ def to_math_sans_plain(text: str) -> str:
 def blockquote(text: str) -> str:
     return f"<blockquote>{text}</blockquote>"
 
-# Video caption processing (no bracket detection)
+# Video caption processing – anchor on "Title:"
 def process_caption(text: str, numbering: str) -> str:
-    # Find all numbers in the caption
-    all_numbers = re.findall(r'\d+', text)
-    target_number = None
+    # Find "Title:" (case‑insensitive, may have emoji before it)
+    title_match = re.search(r'Title\s*:', text, re.IGNORECASE)
+    if not title_match:
+        # If there's no "Title:" at all, keep the caption as‑is (just clean it)
+        if '├' in text:
+            text = text.split('├', 1)[0].strip()
+        title_text = ' '.join(text.split())
+        formatted_number = to_math_sans_plain(numbering.zfill(3))
+        blockquote_text = blockquote(f"[{formatted_number}]")
+        return f"{blockquote_text}{title_text}" if title_text else blockquote_text
 
-    # Check for the exact pattern: 3-digit, then 1-3 digit, then 1-3 digit (the target)
-    if len(all_numbers) >= 3:
-        if (len(all_numbers[0]) == 3 and
-            1 <= len(all_numbers[1]) <= 3 and
-            1 <= len(all_numbers[2]) <= 3):
-            target_number = all_numbers[2]   # third number is the one to remove
-            # Locate the third number occurrence in the original text
-            matches = list(re.finditer(r'\d+', text))
-            if len(matches) >= 3:
-                third_match = matches[2]
-                # Remove everything before the start of the third number, and the number itself
-                text = text[third_match.end():].strip()
+    # Work only on the part after "Title:"
+    after_title = text[title_match.end():]
 
-    # If the pattern didn't match, leave the caption untouched (no removal)
+    # Look for closing bracket (ASCII or fullwidth) + optional spaces + number
+    pattern = r'[\)）]\s*\d+'
+    bracket_match = re.search(pattern, after_title)
+    if bracket_match:
+        # Remove everything before and including that bracket‑number combination
+        # (relative to the start of the whole caption)
+        cut_pos = title_match.end() + bracket_match.end()
+        clean = text[cut_pos:].strip()
+    else:
+        # Fallback: if no bracket found, just use whatever is after "Title:"
+        clean = after_title.strip()
 
-    # Detect "├" and remove everything after including it
-    if '├' in text:
-        text = text.split('├', 1)[0].strip()
+    # Remove everything after "├"
+    if '├' in clean:
+        clean = clean.split('├', 1)[0].strip()
 
-    # Remove any leftover leading dot or spaces
-    text = text.lstrip('. ')
-    # Clean up multiple spaces/newlines
-    title_text = ' '.join(text.split())
+    # Final cleanup
+    clean = clean.lstrip('. ')
+    title_text = ' '.join(clean.split())
 
-    # Format bot's automatic numbering
+    # Add bot's numbering
     formatted_number = to_math_sans_plain(numbering.zfill(3))
     blockquote_text = blockquote(f"[{formatted_number}]")
     return f"{blockquote_text}{title_text}" if title_text else blockquote_text
 
-# PDF/HTML renaming: remove everything up to and including the first number + following spaces
+# PDF/HTML renaming: remove everything up to & including first number + following spaces
 def remove_leading_number(filename: str) -> str:
     name, ext = os.path.splitext(filename)
     name = re.sub(r'^.*?\d+\s*', '', name)
