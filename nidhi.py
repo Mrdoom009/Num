@@ -55,7 +55,7 @@ def blockquote(text: str) -> str:
 
 # Video caption processing
 def process_caption(text: str, numbering: str) -> str:
-    # Detect ") 1" pattern – closing bracket followed by a number
+    # Detect ") " followed by one or more digits
     pattern = r'\)\s*\d+'
     match = re.search(pattern, text)
     if match:
@@ -71,11 +71,12 @@ def process_caption(text: str, numbering: str) -> str:
     blockquote_text = blockquote(f"[{formatted_number}]")
     return f"{blockquote_text}{title_text}" if title_text else blockquote_text
 
-# Remove leading numbering from a filename (e.g., "34. lecture.pdf" -> "lecture.pdf")
+# PDF/HTML renaming: find first number in filename, remove everything before it
+# (including the number) and any following spaces.
 def remove_leading_number(filename: str) -> str:
     name, ext = os.path.splitext(filename)
-    # Remove digits followed by dot and optional space at the beginning
-    name = re.sub(r'^\d+\.\s*', '', name)
+    # Remove from start up to (and including) the first number + optional spaces
+    name = re.sub(r'^.*?\d+\s*', '', name)
     if not name:
         name = "document"
     return name + ext
@@ -104,7 +105,7 @@ async def handle_media(client, message: Message):
                 await message.edit_caption('')
             except:
                 pass
-            # Rename file by removing leading numbering
+            # Rename file by removing leading numbering (new rule)
             new_name = remove_leading_number(fname)
             if new_name != fname:
                 try:
