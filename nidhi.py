@@ -53,43 +53,23 @@ def to_math_sans_plain(text: str) -> str:
 def blockquote(text: str) -> str:
     return f"<blockquote>{text}</blockquote>"
 
-# Video caption processing – anchor on "Title:"
+# Video caption processing – two simple rules
 def process_caption(text: str, numbering: str) -> str:
-    # Find "Title:" (case‑insensitive, may have emoji before it)
-    title_match = re.search(r'Title\s*:', text, re.IGNORECASE)
-    if not title_match:
-        # If there's no "Title:" at all, keep the caption as‑is (just clean it)
-        if '├' in text:
-            text = text.split('├', 1)[0].strip()
-        title_text = ' '.join(text.split())
-        formatted_number = to_math_sans_plain(numbering.zfill(3))
-        blockquote_text = blockquote(f"[{formatted_number}]")
-        return f"{blockquote_text}{title_text}" if title_text else blockquote_text
+    # 1. Remove everything before and including "Title : <number>"
+    #    (case‑insensitive, any number of digits)
+    title_match = re.search(r'Title\s*:\s*\d+', text, re.IGNORECASE)
+    if title_match:
+        text = text[title_match.end():].strip()
 
-    # Work only on the part after "Title:"
-    after_title = text[title_match.end():]
-
-    # Look for closing bracket (ASCII or fullwidth) + optional spaces + number
-    pattern = r'[\)）]\s*\d+'
-    bracket_match = re.search(pattern, after_title)
-    if bracket_match:
-        # Remove everything before and including that bracket‑number combination
-        # (relative to the start of the whole caption)
-        cut_pos = title_match.end() + bracket_match.end()
-        clean = text[cut_pos:].strip()
-    else:
-        # Fallback: if no bracket found, just use whatever is after "Title:"
-        clean = after_title.strip()
-
-    # Remove everything after "├"
-    if '├' in clean:
-        clean = clean.split('├', 1)[0].strip()
+    # 2. Remove everything after and including ".mp4" (case‑insensitive)
+    mp4_match = re.search(r'\.mp4', text, re.IGNORECASE)
+    if mp4_match:
+        text = text[:mp4_match.start()].strip()
 
     # Final cleanup
-    clean = clean.lstrip('. ')
-    title_text = ' '.join(clean.split())
+    title_text = ' '.join(text.split())
 
-    # Add bot's numbering
+    # Add bot's automatic numbering
     formatted_number = to_math_sans_plain(numbering.zfill(3))
     blockquote_text = blockquote(f"[{formatted_number}]")
     return f"{blockquote_text}{title_text}" if title_text else blockquote_text
