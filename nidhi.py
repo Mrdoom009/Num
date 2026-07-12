@@ -55,17 +55,15 @@ def blockquote(text: str) -> str:
 
 # Video caption processing
 def process_caption(text: str, numbering: str) -> str:
-    # Detect "Title: " followed by number and dot (e.g., "Title: 34.")
-    pattern = r'Title:\s*\d+\.'
+    # Detect ") 1" pattern – closing bracket followed by a number
+    pattern = r'\)\s*\d+'
     match = re.search(pattern, text)
     if match:
         # Remove everything before and including the matched pattern
         text = text[match.end():].strip()
-    # Remove everything after and including "One.mkv" or "One.mp4" (whichever appears first)
-    for marker in ["One.mkv", "One.mp4"]:
-        if marker in text:
-            text = text.split(marker, 1)[0].strip()
-            break
+    # Detect "├" and remove everything after including it
+    if '├' in text:
+        text = text.split('├', 1)[0].strip()
     # Clean whitespace
     title_text = ' '.join(text.split())
     # Format bot's numbering
@@ -130,13 +128,7 @@ async def handle_media(client, message: Message):
 # Command handlers
 @bot.on_message(filters.command("start"))
 async def start_cmd(_, message):
-    await message.reply(
-        "✅ Bot is running.\n\n"
-        "• Videos: Detects `Title: 34.`, removes before+including it, then removes everything after `One.mkv` or `One.mp4`, then adds automatic numbering.\n"
-        "• PDF/HTML: Caption cleared; filename stripped of leading numbers (e.g., `34. lecture.pdf` → `lecture.pdf`).\n"
-        "Use `/reset` or `/set <number>` to control video numbering.",
-        parse_mode=enums.ParseMode.HTML
-    )
+    await message.reply("✅ Bot is alive.", parse_mode=enums.ParseMode.HTML)
 
 @bot.on_message(filters.command(["reset", "set"]))
 async def number_control(_, message):
