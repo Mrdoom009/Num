@@ -53,20 +53,19 @@ def to_math_sans_plain(text: str) -> str:
 def blockquote(text: str) -> str:
     return f"<blockquote>{text}</blockquote>"
 
-# Video caption processing – two simple rules
+# Video caption processing – Rule 1: cut before+including "Title : number"  Rule 2: cut after+including ".mp4"
 def process_caption(text: str, numbering: str) -> str:
-    # 1. Remove everything before and including "Title : <number>"
-    #    (case‑insensitive, any number of digits)
+    # Step 1: Remove everything up to and including "Title : <number>"
     title_match = re.search(r'Title\s*:\s*\d+', text, re.IGNORECASE)
     if title_match:
         text = text[title_match.end():].strip()
 
-    # 2. Remove everything after and including ".mp4" (case‑insensitive)
+    # Step 2: Remove everything after and including ".mp4" (case‑insensitive)
     mp4_match = re.search(r'\.mp4', text, re.IGNORECASE)
     if mp4_match:
         text = text[:mp4_match.start()].strip()
 
-    # Final cleanup
+    # Final cleanup – collapse extra spaces
     title_text = ' '.join(text.split())
 
     # Add bot's automatic numbering
