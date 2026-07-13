@@ -53,29 +53,28 @@ def to_math_sans_plain(text: str) -> str:
 def blockquote(text: str) -> str:
     return f"<blockquote>{text}</blockquote>"
 
-# Video caption processing – latest rules
+# Video caption processing – NEW RULE
 def process_caption(text: str, numbering: str) -> str:
-    # 1. Find "Title" (case‑insensitive) then the first number after it,
-    #    remove everything before that number including itself.
-    title_match = re.search(r'Title', text, re.IGNORECASE)
-    if title_match:
-        after_title = text[title_match.end():]
-        number_match = re.search(r'\d+', after_title)
-        if number_match:
-            cut_pos = title_match.end() + number_match.end()
-            text = text[cut_pos:].strip()
-    # 2. Detect ".mp4" (case‑insensitive) and remove it and everything after.
-    mp4_match = re.search(r'\.mp4', text, re.IGNORECASE)
-    if mp4_match:
-        text = text[:mp4_match.start()].strip()
-    # Clean whitespace
-    title_text = ' '.join(text.split())
-    # Format bot's numbering
+    # Find the last pair of parentheses ( … ) in the caption.
+    # We look for the last '(' and then its matching ')'.
+    matches = list(re.finditer(r'\(([^()]*)\)', text))
+    if matches:
+        last_match = matches[-1]                     # the rightmost bracket group
+        inner = last_match.group(1).strip()          # text inside the last brackets
+        # Remove any leading number (digits) that is right after the opening bracket.
+        # We do NOT touch numbers near the closing bracket.
+        cleaned = re.sub(r'^\d+\s*', '', inner)
+        title_text = ' '.join(cleaned.split())
+    else:
+        # Fallback: if no bracket at all, use the whole caption (after cleaning)
+        title_text = ' '.join(text.split())
+
+    # Add bot's automatic numbering
     formatted_number = to_math_sans_plain(numbering.zfill(3))
     blockquote_text = blockquote(f"[{formatted_number}]")
     return f"{blockquote_text}{title_text}" if title_text else blockquote_text
 
-# PDF/HTML renaming – remove everything before first number + number itself
+# PDF/HTML renaming – unchanged: remove everything before first number + number itself
 def remove_leading_number(filename: str) -> str:
     name, ext = os.path.splitext(filename)
     name = re.sub(r'^.*?\d+\s*', '', name)
@@ -95,10 +94,8 @@ async def handle_media(client, message: Message):
 
         new_caption = process_caption(message.caption or '', str(num))
         try:
-            # Try to edit the original message caption
             await message.edit_caption(new_caption, parse_mode=enums.ParseMode.HTML)
         except Exception as e:
-            # Editing failed → send a new video with the correct caption, then delete the original
             print(f"Caption edit failed: {e}")
             try:
                 await message.reply_video(
